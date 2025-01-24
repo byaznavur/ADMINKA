@@ -1,0 +1,22 @@
+.admin-logo {
+  padding: 24px;
+  font-size: 20px;
+  color: white;
+  font-weight: bold;
+}
+
+.admin-aside {
+  height: 100vh;
+}
+
+.admin-header {
+  background-color: #001528 !important;
+}
+
+.admin-header svg {
+  fill: white;
+}
+.admin-main {
+  height: calc(100vh - 68px);
+  overflow: auto;
+}
