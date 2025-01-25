@@ -6,34 +6,50 @@ import {
   Image,
   Input,
   Modal,
+  Pagination,
   Space,
   Table,
 } from "antd";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import request from "../server";
+import { LIMIT } from "../constants";
 
 const TeachersPage = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isLoadingModal, setIsLoadingModal] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [activePage, setActivePage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [total, setTotal] = useState(0);
   const [form] = Form.useForm();
-  useEffect(() => {
-    getData();
-  }, []);
-
-  const getData = async () => {
+  const getData = useCallback(async () => {
     try {
       setLoading(true);
-      let { data } = await request.get("/teachers");
+      let params = {
+        page: activePage,
+        limit: LIMIT,
+      };
+      let { data } = await request.get("/teachers", { params });
+      let { data: totalData } = await request.get("teachers");
+
+      setTotal(totalData.length);
       setData(data);
+
+      data = data.map((el) => {
+        data.key = data.id;
+        return el;
+      });
     } catch (error) {
       setError(error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [activePage]);
+  useEffect(() => {
+    getData();
+  }, [getData]);
 
   const showModal = () => {
     setIsModalOpen(true);
@@ -42,12 +58,20 @@ const TeachersPage = () => {
   };
   const handleOk = async () => {
     try {
+      setIsLoadingModal(true);
+
       let values = await form.validateFields();
-      await request.post("/teachers", values);
+      if (selected === null) {
+        await request.post("/teachers", values);
+      } else {
+        await request.put(`/teachers/${selected}`, values);
+      }
       getData();
       setIsModalOpen(false);
     } catch (error) {
       console.log(error);
+    } finally {
+      setIsLoadingModal(false);
     }
   };
   const closeModal = () => {
@@ -58,10 +82,21 @@ const TeachersPage = () => {
     try {
       setIsModalOpen(true);
       setSelected(id);
-      console.log(id);
+      let { data } = await request.get(`teachers/${id}`);
+      form.setFieldsValue(data);
     } catch (error) {
       console.log(error);
     }
+  };
+
+  const deleteTeacher = async (id) => {
+    Modal.confirm({
+      title: "Are you sure you want to delete ?",
+      onOk: async () => {
+        await request.delete(`/teachers/${id}`);
+        getData();
+      },
+    });
   };
   const columns = [
     {
@@ -117,7 +152,7 @@ const TeachersPage = () => {
           <Button onClick={() => editTeacher(data)} type="primary">
             Edit
           </Button>
-          <Button danger type="primary">
+          <Button onClick={() => deleteTeacher(data)} danger type="primary">
             Delete
           </Button>
         </Space>
@@ -133,7 +168,7 @@ const TeachersPage = () => {
         }}
         title={() => (
           <Flex justify="space-between" align="center">
-            <h2>Teachers({data.length})</h2>
+            <h2>Teachers({total})</h2>
             <Button onClick={showModal} type="dashed">
               Add Teachers
             </Button>
@@ -142,10 +177,16 @@ const TeachersPage = () => {
         loading={loading}
         columns={columns}
         dataSource={data}
+        pagination={false}
       />
-      ;
+      <Pagination
+        current={activePage}
+        total={total}
+        onChange={(page) => setActivePage(page)}
+      />
       <Modal
         maskClosable={false}
+        confirmLoading={isLoadingModal}
         title="Teacher Data"
         open={isModalOpen}
         onOk={handleOk}
